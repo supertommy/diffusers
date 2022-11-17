@@ -263,9 +263,9 @@ def parse_args(input_args=None):
         args.local_rank = env_local_rank
 
     if args.with_prior_preservation:
-        if args.class_data_dir is None:
+        if args.class_data_dir is None and args.concepts_list is None:
             raise ValueError("You must specify a data directory for class images.")
-        if args.class_prompt is None:
+        if args.class_prompt is None and args.concepts_list is None:
             raise ValueError("You must specify prompt for class images.")
     else:
         if args.class_data_dir is not None:
