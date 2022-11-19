@@ -230,8 +230,8 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument("--log_interval", type=int, default=10, help="Log every N steps.")
-    parser.add_argument("--save_interval", type=int, default=10_000, help="Save weights every N steps.")
-    parser.add_argument("--save_min_steps", type=int, default=0, help="Start saving weights after N steps.")
+    # parser.add_argument("--save_interval", type=int, default=10_000, help="Save weights every N steps.")
+    # parser.add_argument("--save_min_steps", type=int, default=0, help="Start saving weights after N steps.")
     parser.add_argument(
         "--mixed_precision",
         type=str,
@@ -686,53 +686,53 @@ def main(args):
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
 
-    def save_weights(step):
-        # Create the pipeline using using the trained modules and save it.
-        if accelerator.is_main_process:
-            if args.train_text_encoder:
-                text_enc_model = accelerator.unwrap_model(text_encoder)
-            else:
-                text_enc_model = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision)
-            scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
-            pipeline = StableDiffusionPipeline.from_pretrained(
-                args.pretrained_model_name_or_path,
-                unet=accelerator.unwrap_model(unet),
-                text_encoder=text_enc_model,
-                vae=AutoencoderKL.from_pretrained(
-                    args.pretrained_vae_name_or_path or args.pretrained_model_name_or_path,
-                    subfolder=None if args.pretrained_vae_name_or_path else "vae",
-                    revision=None if args.pretrained_vae_name_or_path else args.revision,
-                ),
-                safety_checker=None,
-                scheduler=scheduler,
-                torch_dtype=torch.float16,
-                revision=args.revision,
-            )
-            save_dir = os.path.join(args.output_dir, f"{step}")
-            pipeline.save_pretrained(save_dir)
-            with open(os.path.join(save_dir, "args.json"), "w") as f:
-                json.dump(args.__dict__, f, indent=2)
+    # def save_weights(step):
+    #     # Create the pipeline using using the trained modules and save it.
+    #     if accelerator.is_main_process:
+    #         if args.train_text_encoder:
+    #             text_enc_model = accelerator.unwrap_model(text_encoder)
+    #         else:
+    #             text_enc_model = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision)
+    #         scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
+    #         pipeline = StableDiffusionPipeline.from_pretrained(
+    #             args.pretrained_model_name_or_path,
+    #             unet=accelerator.unwrap_model(unet),
+    #             text_encoder=text_enc_model,
+    #             vae=AutoencoderKL.from_pretrained(
+    #                 args.pretrained_vae_name_or_path or args.pretrained_model_name_or_path,
+    #                 subfolder=None if args.pretrained_vae_name_or_path else "vae",
+    #                 revision=None if args.pretrained_vae_name_or_path else args.revision,
+    #             ),
+    #             safety_checker=None,
+    #             scheduler=scheduler,
+    #             torch_dtype=torch.float16,
+    #             revision=args.revision,
+    #         )
+    #         save_dir = os.path.join(args.output_dir, f"{step}")
+    #         pipeline.save_pretrained(save_dir)
+    #         with open(os.path.join(save_dir, "args.json"), "w") as f:
+    #             json.dump(args.__dict__, f, indent=2)
 
-            if args.save_sample_prompt is not None:
-                pipeline = pipeline.to(accelerator.device)
-                g_cuda = torch.Generator(device=accelerator.device).manual_seed(args.seed)
-                pipeline.set_progress_bar_config(disable=True)
-                sample_dir = os.path.join(save_dir, "samples")
-                os.makedirs(sample_dir, exist_ok=True)
-                with torch.autocast("cuda"), torch.inference_mode():
-                    for i in tqdm(range(args.n_save_sample), desc="Generating samples"):
-                        images = pipeline(
-                            args.save_sample_prompt,
-                            negative_prompt=args.save_sample_negative_prompt,
-                            guidance_scale=args.save_guidance_scale,
-                            num_inference_steps=args.save_infer_steps,
-                            generator=g_cuda
-                        ).images
-                        images[0].save(os.path.join(sample_dir, f"{i}.png"))
-                del pipeline
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-            print(f"[*] Weights saved at {save_dir}")
+    #         if args.save_sample_prompt is not None:
+    #             pipeline = pipeline.to(accelerator.device)
+    #             g_cuda = torch.Generator(device=accelerator.device).manual_seed(args.seed)
+    #             pipeline.set_progress_bar_config(disable=True)
+    #             sample_dir = os.path.join(save_dir, "samples")
+    #             os.makedirs(sample_dir, exist_ok=True)
+    #             with torch.autocast("cuda"), torch.inference_mode():
+    #                 for i in tqdm(range(args.n_save_sample), desc="Generating samples"):
+    #                     images = pipeline(
+    #                         args.save_sample_prompt,
+    #                         negative_prompt=args.save_sample_negative_prompt,
+    #                         guidance_scale=args.save_guidance_scale,
+    #                         num_inference_steps=args.save_infer_steps,
+    #                         generator=g_cuda
+    #                     ).images
+    #                     images[0].save(os.path.join(sample_dir, f"{i}.png"))
+    #             del pipeline
+    #             if torch.cuda.is_available():
+    #                 torch.cuda.empty_cache()
+    #         print(f"[*] Weights saved at {save_dir}")
 
     # Only show the progress bar once on each machine.
     progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
@@ -812,8 +812,8 @@ def main(args):
                 progress_bar.set_postfix(**logs)
                 accelerator.log(logs, step=global_step)
 
-            if global_step > 0 and not global_step % args.save_interval and global_step >= args.save_min_steps:
-                save_weights(global_step)
+            # if global_step > 0 and not global_step % args.save_interval and global_step >= args.save_min_steps:
+            #     save_weights(global_step)
 
             progress_bar.update(1)
             global_step += 1
@@ -823,7 +823,7 @@ def main(args):
 
         accelerator.wait_for_everyone()
 
-    save_weights(global_step)
+    # save_weights(global_step)
 
     accelerator.end_training()
 
