@@ -3,6 +3,7 @@ import hashlib
 import itertools
 import random
 import json
+import copy
 import math
 import os
 from pathlib import Path
@@ -592,7 +593,9 @@ def main(args):
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        accelerator.init_trackers("dreambooth", config=vars(args))
+        args_copy = copy.deepcopy(args)
+        del args_copy.concepts_list
+        accelerator.init_trackers("dreambooth", config=vars(args_copy))
 
     # Train!
     total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
