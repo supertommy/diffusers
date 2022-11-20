@@ -1,7 +1,6 @@
 import argparse
 import hashlib
 import itertools
-import random
 import json
 import copy
 import math
@@ -246,20 +245,24 @@ class DreamBoothDataset(Dataset):
         self.with_prior_preservation = with_prior_preservation
 
         self.instance_images_path = []
-        self.class_images_path = []
+        self.class_images_path_by_instance_prompt = {}
+        self.num_class_images_by_instance_prompt = {}
+
+        num_class_images = 0
 
         for concept in concepts_list:
-            inst_img_path = [(x, concept["instance_prompt"]) for x in Path(concept["instance_data_dir"]).iterdir() if x.is_file()]
+            instance_prompt = concept["instance_prompt"]
+            self.class_images_path_by_instance_prompt[instance_prompt] = []
+            inst_img_path = [(x, instance_prompt) for x in Path(concept["instance_data_dir"]).iterdir() if x.is_file()]
             self.instance_images_path.extend(inst_img_path)
 
             if with_prior_preservation:
                 class_img_path = [(x, concept["class_prompt"]) for x in Path(concept["class_data_dir"]).iterdir() if x.is_file()]
-                self.class_images_path.extend(class_img_path)
+                self.class_images_path_by_instance_prompt[instance_prompt].extend(class_img_path)
+                num_class_images += len(class_img_path)
 
-        random.shuffle(self.instance_images_path)
         self.num_instance_images = len(self.instance_images_path)
-        self.num_class_images = len(self.class_images_path)
-        self._length = max(self.num_class_images, self.num_instance_images)
+        self._length = max(num_class_images, self.num_instance_images)
 
         self.image_transforms = transforms.Compose(
             [
@@ -274,7 +277,6 @@ class DreamBoothDataset(Dataset):
         return self._length
 
     def __getitem__(self, index):
-        # NOTE: this index lookup is only going to work if class and instances images are the same length
         example = {}
         instance_path, instance_prompt = self.instance_images_path[index % self.num_instance_images]
         instance_image = Image.open(instance_path)
@@ -289,7 +291,13 @@ class DreamBoothDataset(Dataset):
         ).input_ids
 
         if self.with_prior_preservation:
-            class_path, class_prompt = self.class_images_path[index % self.num_class_images]
+            class_images_path = self.class_images_path_by_instance_prompt[instance_prompt]
+            if not instance_prompt in self.num_class_images_by_instance_prompt:
+                count = len(class_images_path)
+                self.num_class_images_by_instance_prompt[instance_prompt] = count
+
+            num_class_images = self.num_class_images_by_instance_prompt[instance_prompt]
+            class_path, class_prompt = class_images_path[index % num_class_images]
             class_image = Image.open(class_path)
             if not class_image.mode == "RGB":
                 class_image = class_image.convert("RGB")
