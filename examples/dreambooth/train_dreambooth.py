@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import itertools
 import json
+import random
 import copy
 import math
 import os
@@ -201,6 +202,7 @@ def parse_args(input_args=None):
         default=None,
         help="Path to json containing multiple concepts, will overwrite parameters like instance_prompt, class_prompt, etc.",
     )
+    parser.add_argument("--shuffle", action="store_true", help="Whether or not to shuffle instance images", default=False)
 
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -260,6 +262,9 @@ class DreamBoothDataset(Dataset):
                 class_img_path = [(x, concept["class_prompt"]) for x in Path(concept["class_data_dir"]).iterdir() if x.is_file()]
                 self.class_images_path_by_instance_prompt[instance_prompt].extend(class_img_path)
                 num_class_images += len(class_img_path)
+
+        if args.shuffle:
+            random.shuffle(self.instance_images_path)
 
         self.num_instance_images = len(self.instance_images_path)
         self._length = max(num_class_images, self.num_instance_images)
